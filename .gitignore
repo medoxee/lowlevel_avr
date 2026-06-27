@@ -1,0 +1,4 @@
+# Ignore vim auto-generated files
+
+*.swap
+**~
