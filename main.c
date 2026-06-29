@@ -4,6 +4,8 @@
 #include <util/delay.h>
 #include <util/twi.h>
 
+#define	F_CPU	16000000UL
+
 void	main(void)
 {
 	/*
