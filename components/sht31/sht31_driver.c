@@ -87,7 +87,7 @@ uint8_t	sht31_init(void)
 	TWSR &= 0xfc;
 	sht31_send_condition(TWSTA);
 	sht31_send_condition(TWSTA);
-	if (sht31_intrrupt_handler(TW_START)
+	if (sht31_interrupt_handler(TW_START))
 		return	0x01;
 	TWCR &= ~(1 << TWSTA);
 	TWDR = (SHT_ADDR << 1) | WBIT;
@@ -110,7 +110,7 @@ uint8_t	sht31_read_data(int16_t	*scaled_data)
 	uint8_t	byte_counter;
 
 	sht31_send_condition(TWSTA);
-	if (sht31_intrrupt_handler(TW_START)
+	if (sht31_interrupt_handler(TW_START))
 		return	0x05;
 	TWCR &= ~(1 << TWSTA);
 	TWDR = (SHT_ADDR << 1) | RBIT;
