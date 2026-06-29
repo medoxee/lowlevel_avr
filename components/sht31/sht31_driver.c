@@ -46,8 +46,9 @@ uint8_t	sht31_init(void)
 	TWBR = 0x48;
 	TWSR &= 0xfc;
 	sht31_send_condition(TWSTA);
-	if (sht31_interrupt_handler(TW_START))
-		return 0x01;
+	sht31_send_condition(TWSTA);
+	if (sht31_intrrupt_handler(TW_START)
+		return	0x01;
 	TWCR &= ~(1 << TWSTA);
 	TWDR = (SHT_ADDR << 1) | WBIT;
 	if (sht31_interrupt_handler(TW_MT_SLA_ACK))
@@ -59,19 +60,18 @@ uint8_t	sht31_init(void)
 	if (sht31_interrupt_handler(TW_MT_DATA_ACK))
 		return 0x04;
 	sht31_send_condition(TWSTO);
-	TWCR &= ~(1 << TWSTO);
 	_delay_ms(8);
 	return 0;
 }
 
-uint8_t	sht31_read_data(void)
+uint8_t	sht31_read_data(int16_t	*scaled_data)
 {
-	uint8_t	data[DATA_SIZE];
+	uint8_t	raw_data[DATA_SIZE];
 	uint8_t	byte_counter;
 
 	sht31_send_condition(TWSTA);
-	if (sht31_interrupt_handler(TW_START))
-		return	0x06;
+	if (sht31_intrrupt_handler(TW_START)
+		return	0x05;
 	TWCR &= ~(1 << TWSTA);
 	TWDR = (SHT_ADDR << 1) | RBIT;
 	if (sht31_interrupt_handler(TW_MR_SLA_ACK))
@@ -85,20 +85,21 @@ uint8_t	sht31_read_data(void)
 			TWCR &= ~(1 << TWEA);
 			if (sht31_interrupt_handler(TW_MR_DATA_NACK))
 				return	0x08;
-			data[byte_counter] = TWDR;
+			raw_data[byte_counter] = TWDR;
 			break;
 		}
 		if (sht31_interrupt_handler(TW_MR_DATA_ACK))
 			return	0x09;
-		data[byte_counter] = TWDR;
+		raw_data[byte_counter] = TWDR;
 		byte_counter++;
 	}
-	sht_send_condition(TWSTO);
-	TWCR &= ~(1 << TWSTO);
-	if (sht31_verif_crc(data[0], data[1]) != data[2])
+	sht31_send_condition(TWSTO);
+	if (sht31_verif_crc(raw_data[0], raw_data[1]) != raw_data[2])
 		return	0x0A;
-	if (sht31_verif_crc(data[3], data[4]) != data[5])
+	if (sht31_verif_crc(raw_data[3], raw_data[4]) != raw_data[5])
 		return	0x0B;
+	sht31_convert(scaled_data, raw_data[0], raw_data[1], raw_data[3],
+			raw_data[4]);
 	return	0;
 }
 
@@ -108,20 +109,22 @@ uint8_t	sht31_verif_crc(uint8_t	data_msb, uint8_t	data_lsb)
 	uint8_t	counter;
 	uint8_t	mes_data[2];
 	uint8_t	xsb_byte;
+	uint8_t	msb_bit;
 
 	mes_data[0] = data_msb;
 	mes_data[1] = data_lsb;
 	acc = CRC_INIT;
 	xsb_byte = 0;
-	while (xbs_byte < 2)
+	while (xsb_byte < 2)
 	{
 		acc ^= mes_data[xsb_byte];
 		counter = 8;
 		while (counter)
 		{
-			if (acc >> 7)
-				acc ^= CRC_POLY;
+			msb_bit = acc >> 7;
 			acc = acc << 1;
+			if (msb_bit)
+				acc ^= CRC_POLY;
 			counter--;
 		}
 		xsb_byte++;
@@ -129,16 +132,15 @@ uint8_t	sht31_verif_crc(uint8_t	data_msb, uint8_t	data_lsb)
 	return	acc;
 }
 
-uint16_t	*sht31_convert(uint16_t	temp_msb, uint16_t	temp_lsb,
-		uint16_t	hum_msb, uint16_t	hum_lsb)
+void	sht31_convert(int16_t	*scaled_data, uint16_t	temp_msb,
+		uint16_t	temp_lsb, uint16_t	hum_msb,
+		uint16_t	hum_lsb)
 {
 	uint16_t	raw_temp;
 	uint16_t	raw_hum;
-	uint16_t	scaled_data[2];
 
 	raw_temp = (temp_msb << 8) | temp_lsb;
 	raw_hum = (hum_msb << 8) | hum_lsb;
-	scaled_data[0] = -45 + 175 * (raw_temp / 65535);
-	scaled_data[1] = 100 * (raw_hum / 65535);
-	return	scaled_data;
+	scaled_data[0] = -45 + ((175 * (uint32_t)raw_temp) / 65535);
+	scaled_data[1] = (100 * (uint32_t)raw_hum) / 65535;
 }
