@@ -45,4 +45,4 @@
 #include <stdint.h>
 
 uint8_t	sht31_init(void);
-uint8_t	sht31_read_data(int16_t	*scaled_data);
+uint8_t	sht31_read_data(int16_t	*temp_hum);

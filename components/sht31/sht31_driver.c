@@ -14,7 +14,7 @@
 #define	CRC_POLY	0x31
 #define	CRC_ERR 	0xcc
 
-static	void	sht31_convert(int16_t	*scaled_data, uint16_t	temp_msb,
+static	void	sht31_convert(int16_t	*temp_hum, uint16_t	temp_msb,
 		uint16_t	temp_lsb, uint16_t	hum_msb,
 		uint16_t	hum_lsb)
 {
@@ -23,8 +23,8 @@ static	void	sht31_convert(int16_t	*scaled_data, uint16_t	temp_msb,
 
 	raw_temp = (temp_msb << 8) | temp_lsb;
 	raw_hum = (hum_msb << 8) | hum_lsb;
-	scaled_data[0] = -45 + ((175 * (uint32_t)raw_temp) / 65535);
-	scaled_data[1] = (100 * (uint32_t)raw_hum) / 65535;
+	temp_hum[0] = -45 + ((175 * (uint32_t)raw_temp) / 65535);
+	temp_hum[1] = (100 * (uint32_t)raw_hum) / 65535;
 }
 
 static	uint8_t	sht31_verif_crc(uint8_t	data_msb, uint8_t	data_lsb)
@@ -86,8 +86,7 @@ uint8_t	sht31_init(void)
 	TWBR = 0x48;
 	TWSR &= 0xfc;
 	sht31_send_condition(TWSTA);
-	sht31_send_condition(TWSTA);
-	if (sht31_interrupt_handler(TW_START))
+	if (TW_STATUS != TW_START)
 		return	0x01;
 	TWCR &= ~(1 << TWSTA);
 	TWDR = (SHT_ADDR << 1) | WBIT;
@@ -104,13 +103,13 @@ uint8_t	sht31_init(void)
 	return 0;
 }
 
-uint8_t	sht31_read_data(int16_t	*scaled_data)
+uint8_t	sht31_read_data(int16_t	*temp_hum)
 {
 	uint8_t	raw_data[DATA_SIZE];
 	uint8_t	byte_counter;
 
 	sht31_send_condition(TWSTA);
-	if (sht31_interrupt_handler(TW_START))
+	if (TW_STATUS != TW_START)
 		return	0x05;
 	TWCR &= ~(1 << TWSTA);
 	TWDR = (SHT_ADDR << 1) | RBIT;
@@ -138,7 +137,7 @@ uint8_t	sht31_read_data(int16_t	*scaled_data)
 		return	0x09;
 	if (sht31_verif_crc(raw_data[3], raw_data[4]) != raw_data[5])
 		return	0x0A;
-	sht31_convert(scaled_data, raw_data[0], raw_data[1], raw_data[3],
+	sht31_convert(temp_hum, raw_data[0], raw_data[1], raw_data[3],
 			raw_data[4]);
 	return	0;
 }
