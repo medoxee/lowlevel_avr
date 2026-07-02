@@ -114,19 +114,18 @@ uint8_t	sht31_read_data(int16_t	*temp_hum)
 	if (sht31_interrupt_handler(TW_MR_SLA_ACK))
 		return	0x06;
 	byte_counter = 0;
-	TWCR |= (1 << TWEA); /* Check this line, it might causing a bug */
 	while  (1)
 	{
 		if (byte_counter == 5)
 		{
-			TWCR &= ~(1 << TWEA); /* Check this line */
-			if (sht31_interrupt_handler(TW_MR_DATA_NACK))
-				return	0x07;
+			TWCR &= ~(1 << TWEA);
+			TWCR |= (1 << TWINT);
+			while(!(TWCR & (1 << TWINT)));
 			raw_data[byte_counter] = TWDR;
 			break;
 		}
-		if (sht31_interrupt_handler(TW_MR_DATA_ACK))
-			return	0x08;
+		TWCR |= (1 << TWINT) | (1 << TWEA);
+		while(!(TWCR & (1 << TWINT)));
 		raw_data[byte_counter] = TWDR;
 		byte_counter++;
 	}
